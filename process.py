@@ -5,7 +5,7 @@ import sys
 
 class ProcessBar(object):
 
-    def __init__(self, max_steps: int, bar_length=80, done_msg=None):
+    def __init__(self, max_steps: int, bar_length=70, done_msg=None):
         self.max_steps = max_steps
         self.step = 0
         self.bar_length = bar_length
