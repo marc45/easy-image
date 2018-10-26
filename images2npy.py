@@ -199,7 +199,7 @@ def batch_handle(image_files: list,
                 print('=' * 70)
                 print('Batch {}/{}'.format(batch, total_batch - 1))
                 batch_files, batch_labels = choose_file(image_files, labels, batch_size)
-                batch_path = os.path.join(save_path, '%d_batch' % batch)
+                batch_path = os.path.join(save_path, 'batch_%d' % batch)
 
                 if not os.path.isdir(batch_path):
                     os.mkdir(batch_path)
