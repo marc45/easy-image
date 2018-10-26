@@ -5,17 +5,20 @@ import numpy as np
 import random
 import glob
 import os
+import threading
 
 from tensorflow.python.platform import gfile
 from sklearn.model_selection import train_test_split
 
 from process import ProcessBar
 
-
 IMAGES_EXTENSIONS = [
     'jpg', 'jpeg',
     'png', 'gif', 'bmp'
 ]
+
+# Block TensorFlow INFO.
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 def image2array(sess: tf.Session(),
@@ -112,7 +115,6 @@ def paths2npy(sess: tf.Session(),
     :param save_path: path to save npy file
     :param size: The size of result array, default [299,299]
     """
-    # print('-' * 60)
     print('Begin to handle %s data' % load_type)
     bar = ProcessBar(len(paths), done_msg='Handled %d images.' % len(paths))
     data = []
@@ -121,11 +123,11 @@ def paths2npy(sess: tf.Session(),
         data.append(images_data)
         bar.show_process()
     np.save(save_path, np.asarray([data, labels]))
+    print('Saved data at', save_path.replace('\\', '/'))
     del data
 
 
-def images2npy(sess: tf.Session(),
-               paths: list,
+def images2npy(paths: list,
                labels: list,
                save_path: str,
                test=0.3,
@@ -133,7 +135,6 @@ def images2npy(sess: tf.Session(),
                size=None):
     """Convert multiple images to a numpy array and save them as npy files
 
-    :param sess: TensorFlow Session
     :param paths: Path to all pending images
     :param labels: Path's corresponding label
     :param save_path: The npy path to save
@@ -141,6 +142,7 @@ def images2npy(sess: tf.Session(),
     :param valid: The proportion of Validation data in Train data
     :param size: The size of result array, default [299,299]
     """
+    sess = tf.Session()
     train_paths, test_paths, train_labels, test_labels = \
         train_test_split(paths, labels, test_size=test, random_state=66)
     train_paths, valid_paths, train_labels, valid_labels = \
@@ -151,6 +153,26 @@ def images2npy(sess: tf.Session(),
     paths2npy(sess, train_paths, train_labels, os.path.join(save_path, 'train.npy'), 'Train', size)
     paths2npy(sess, test_paths, test_labels, os.path.join(save_path, 'test.npy'), 'Test', size)
     paths2npy(sess, valid_paths, valid_labels, os.path.join(save_path, 'valid.npy'), 'Validation', size)
+    sess.close()
+
+
+class BatchThread(threading.Thread):
+    """
+    Thread that processes a batch of data.
+    Processing each batch of data starts a new thread and session.
+    """
+    def __init__(self, files, labels, save_path, test, valid, size):
+        threading.Thread.__init__(self)
+        self.file = files
+        self.labels = labels
+        self.save_path = save_path
+        self.test = test
+        self.valid = valid
+        self.size = size
+
+    def run(self):
+        images2npy(self.file, self.labels, self.save_path,
+                   self.test, self.valid, self.size)
 
 
 def batch_handle(image_files: list,
@@ -161,53 +183,54 @@ def batch_handle(image_files: list,
                  image_size=None,
                  batch_size=None):
     """
+    Receive the file list, if it need to process the data in batches, implement batching.
+    If it don't need batching, pass the file list to BatchThread for processing.
 
-    :param image_files:
-    :param labels:
-    :param save_path:
-    :param test:
-    :param valid:
-    :param image_size:
-    :param batch_size:
-    :return:
+    :param image_files: All image file names' list
+    :param labels: All image files' labels
+    :param save_path: path to save npy files.
+    :param test: Test rate
+    :param valid: Validation rate
+    :param image_size: The size of result array, default [299,299]
+    :param batch_size: The size of batch, None if do not use batch.(default)
     """
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
 
-    with tf.Session() as sess:
+    print('=' * 70)
+    if batch_size is None:
+        print('No Batch, all images will be handled at once.')
+        images2npy(image_files, labels,
+                   save_path, test, valid, image_size)
+    else:
 
-        print('=' * 70)
-        if batch_size is None:
-            print('No Batch, all images will be handled at once.')
-            images2npy(sess, image_files, labels,
-                       save_path, test, valid, image_size)
+        if type(batch_size) != int:
+            raise TypeError('batch_size must be an integer')
+
+        arr_len = len(image_files)
+        if arr_len % batch_size == 0:
+            total_batch = int(arr_len / batch_size)
         else:
+            total_batch = int(arr_len // batch_size + 1)
 
-            if type(batch_size) != int:
-                raise TypeError('batch_size must be an integer')
+        print('Batch Task, batch size={}, data length={}, get {}'
+              ' batches to handle'.format(batch_size, arr_len, total_batch))
+        batch = 0
+        while len(image_files) > 0:
+            print('=' * 70)
+            print('Batch {}/{}'.format(batch, total_batch - 1))
+            batch_files, batch_labels = choose_file(image_files, labels, batch_size)
+            batch_path = os.path.join(save_path, 'batch_%d' % batch)
 
-            arr_len = len(image_files)
-            if arr_len % batch_size == 0:
-                total_batch = int(arr_len / batch_size)
-            else:
-                total_batch = int(arr_len // batch_size + 1)
+            if not os.path.isdir(batch_path):
+                os.mkdir(batch_path)
 
-            print('Batch Task, batch size={}, data length={}, get {}'
-                  ' batches to handle'.format(batch_size, arr_len, total_batch))
-            batch = 0
-            while len(image_files) > 0:
-                print('=' * 70)
-                print('Batch {}/{}'.format(batch, total_batch - 1))
-                batch_files, batch_labels = choose_file(image_files, labels, batch_size)
-                batch_path = os.path.join(save_path, 'batch_%d' % batch)
-
-                if not os.path.isdir(batch_path):
-                    os.mkdir(batch_path)
-
-                print('Directory: %s' % batch_path.replace('\\', '/'))
-                print('=' * 70)
-                images2npy(sess, batch_files, batch_labels, save_path=batch_path)
-                batch += 1
+            print('Directory: %s' % batch_path.replace('\\', '/'))
+            print('=' * 70)
+            thread = BatchThread(batch_files, batch_labels, batch_path, test, valid, image_size)
+            thread.start()
+            thread.join()
+            batch += 1
 
 
 def folders_name_as_labels(path: str,
@@ -216,15 +239,15 @@ def folders_name_as_labels(path: str,
                            test=0.3,
                            valid=0.3,
                            image_size=None):
-    """
+    """Read all directories in a directory, each directory holds all the images of a tag.
 
-    :param path:
-    :param save_path:
-    :param batch_size:
-    :param test:
-    :param valid:
-    :param image_size:
-    :return:
+    :param path: target directory
+    :param save_path: path to save npy file
+    :param save_path: path to save npy files.
+    :param test: Test rate
+    :param valid: Validation rate
+    :param image_size: The size of result array, default [299,299]
+    :param batch_size: The size of batch, None if do not use batch.(default)
     """
     sub_dirs = [d[0] for d in os.walk(path)]
     is_root = True
@@ -257,4 +280,3 @@ def files_name_split_as_labels(path: str,
 if __name__ == '__main__':
     folders_name_as_labels('samples/images/flowers', 'samples/npy/flowers',
                            batch_size=10, test=0.1, valid=0.1)
-

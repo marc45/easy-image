@@ -22,7 +22,8 @@ class ProcessBar(object):
             n_lines = self.bar_length - n_arrows
             percent = self.step * 100.0 / self.max_steps
 
-        bar = '[' + '>' * n_arrows + '-' * n_lines + ']' +\
+        bar = '█' * n_arrows + \
+              '_' * n_lines + '  ' +\
               '%.2f' % percent + '%' + '\r'
 
         sys.stdout.write(bar)
