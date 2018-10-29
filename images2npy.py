@@ -122,7 +122,8 @@ def paths2npy(sess: tf.Session(),
         images_data = image2array(sess, path, size=size)
         data.append(images_data)
         bar.show_process()
-    np.save(save_path, np.asarray([data, labels]))
+    np.save(save_path + '.data.npy', np.array(data))
+    np.save(save_path + '.labels.npy', np.array(labels))
     print('Saved data at', save_path.replace('\\', '/'))
     del data
 
@@ -150,9 +151,9 @@ def images2npy(paths: list,
     print('Handling Task: %d training data, %d testing data, %d validation data.'
           % (len(train_labels), len(test_labels), len(valid_labels)))
 
-    paths2npy(sess, train_paths, train_labels, os.path.join(save_path, 'train.npy'), 'Train', size)
-    paths2npy(sess, test_paths, test_labels, os.path.join(save_path, 'test.npy'), 'Test', size)
-    paths2npy(sess, valid_paths, valid_labels, os.path.join(save_path, 'valid.npy'), 'Validation', size)
+    paths2npy(sess, train_paths, train_labels, os.path.join(save_path, 'train'), 'Train', size)
+    paths2npy(sess, test_paths, test_labels, os.path.join(save_path, 'test'), 'Test', size)
+    paths2npy(sess, valid_paths, valid_labels, os.path.join(save_path, 'valid'), 'Validation', size)
     sess.close()
 
 
