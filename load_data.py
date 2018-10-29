@@ -1,10 +1,7 @@
 #!/usr/bin/python
 
 import numpy as np
-
-
-def format_raw_data(raw_data):
-    data, labels = raw_data[0], raw_data[1]
+import os
 
 
 def load_data(path: str, load_mode=0):
@@ -31,4 +28,24 @@ def load_data(path: str, load_mode=0):
     valid_data, valid_labels = None, None
     test_data, test_labels = None, None
 
-    # if load_mode
+    if load_mode < 2:
+        train_data, train_labels = np.load(os.path.join(path, 'train.data.npy')),\
+                                   np.load(os.path.join(path, 'train.labels.npy'))
+
+    if load_mode <= 0:
+        valid_data, valid_labels = np.load(os.path.join(path, 'valid.data.npy')), \
+                                   np.load(os.path.join(path, 'valid.labels.npy'))
+
+    if load_mode == 2 or load_mode == -1:
+        test_data, test_labels = np.load(os.path.join(path, 'test.data.npy')), \
+                                   np.load(os.path.join(path, 'test.labels.npy'))
+
+    if load_mode == 0:
+        return train_data, train_labels, valid_data, valid_labels
+    elif load_mode == 1:
+        return train_data, train_labels
+    elif load_mode == 2:
+        return test_data, test_labels
+    else:
+        return train_data, train_labels, valid_data, valid_labels,\
+               test_data, test_labels
