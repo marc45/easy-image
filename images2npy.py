@@ -242,7 +242,6 @@ def folders_name_as_labels(path: str,
     """Read all directories in a directory, each directory holds all the images of a tag.
 
     :param path: target directory
-    :param save_path: path to save npy file
     :param save_path: path to save npy files.
     :param test: Test rate
     :param valid: Validation rate
@@ -270,13 +269,38 @@ def folders_name_as_labels(path: str,
 
 def files_name_split_as_labels(path: str,
                                split_char: str,
-                               label_index=0,
+                               label_index,
+                               save_path: str,
                                batch_size=None,
                                test=0.3,
-                               valid=0.3):
-    pass
+                               valid=0.3,
+                               image_size=None):
+    """
+    Read all the pictures in a directory, with the file name as the label.
+    Among them, you need to provide the separator and subscript.
+    The file name will be split using the separator, and then the split subscript will be selected as the label.
 
-
-if __name__ == '__main__':
-    folders_name_as_labels('samples/images/flowers', 'samples/npy/flowers',
-                           batch_size=10, test=0.1, valid=0.1)
+    :param image_size: The size of result array, default [299,299]
+    :param save_path: path to save npy files.
+    :param path: target directory
+    :param split_char: The character used to split file name.
+    :param label_index: The index of label after split.
+    :param batch_size: The size of batch, None if do not use batch.(default)
+    :param test: Test rate
+    :param valid: Validation rate
+    """
+    images_files = get_all_files(path)
+    label_vocab = {}
+    labels = []
+    label = 0
+    for image_file in images_files:
+        file_name = image_file.split('/')[-1].split('\\')[-1]
+        label_char = file_name.split(split_char)[label_index]
+        if label_char not in label_vocab:
+            label_vocab[label_char] = label
+            labels.append(label)
+            label += 1
+        else:
+            labels.append(label_vocab[label_char])
+    batch_handle(images_files, labels, save_path, test=test, valid=valid, batch_size=batch_size,
+                 image_size=image_size)
